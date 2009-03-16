@@ -44,7 +44,16 @@ def Main(my_name, bin_file, shellcode_file, output_file, egg_size = '0x7F', mark
   code = code[:marker_bytes_location] + marker_bytes_string + code[marker_bytes_location+3:]
   code = code[:max_index_location] + max_index_string + code[max_index_location+1:]
   code = code[:egg_size_location] + egg_size_string + code[egg_size_location+1:]
-  output = ['omelet_code = "%s";' % HexEncode(code)]
+  output = [
+    '// This is the binary code that needs to be executed to find the eggs, ',
+    '// recombine the orignal shellcode and execute it. It is %d bytes:' % (
+      len(code),),
+    'omelet_code = "%s";' % HexEncode(code),
+    '',
+    '// These are the eggs that need to be injected into the target process ',
+    '// for the omelet shellcode to be able to recreate the original shellcode',
+    '// (you can insert them as many times as you want, as long as each one is',
+    '// inserted at least once). They are %d bytes each:' % (egg_size,) ]
   egg_index = 0 
   while shellcode:
     egg = egg_size_string + chr(egg_index ^ 0xFF) + marker_bytes_string
